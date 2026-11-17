@@ -2,6 +2,8 @@ package com.example.lineoverlayeditor
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
+import android.os.Build
+import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -48,6 +50,7 @@ class ChatAccessibilityService : AccessibilityService() {
 
     private fun showOverlay(note: String) {
         if (overlay != null) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 16, 24, 16)
@@ -64,15 +67,23 @@ class ChatAccessibilityService : AccessibilityService() {
                 setPadding(0, 6, 0, 0)
             })
         }
+        val windowType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            windowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.BOTTOM }
-        (getSystemService(WINDOW_SERVICE) as WindowManager).addView(panel, params)
-        overlay = panel
+        try {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).addView(panel, params)
+            overlay = panel
+        } catch (_: Exception) {
+            overlay = null
+        }
     }
 
     private fun hideOverlay() {
